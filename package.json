@@ -1,0 +1,36 @@
+{
+  "name": "contextpack",
+  "version": "0.0.1",
+  "description": "Context and skills installer for AI coding agents.",
+  "type": "module",
+  "license": "MIT",
+  "author": "akashanand",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrhapile/contextpack.git"
+  },
+  "homepage": "https://github.com/mrhapile/contextpack#readme",
+  "bugs": {
+    "url": "https://github.com/mrhapile/contextpack/issues"
+  },
+  "bin": {
+    "contextpack": "./bin/contextpack.js"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "cli",
+    "developer-tools",
+    "workflow",
+    "context",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=18.18"
+  },
+  "files": [
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ]
+}

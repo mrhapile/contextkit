@@ -1,5 +1,5 @@
 {
-  "name": "contextpack",
+  "name": "@akashanand/contextkit",
   "version": "0.0.1",
   "description": "Context and skills installer for AI coding agents.",
   "type": "module",
@@ -7,14 +7,14 @@
   "author": "akashanand",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrhapile/contextpack.git"
+    "url": "git+https://github.com/mrhapile/contextkit.git"
   },
-  "homepage": "https://github.com/mrhapile/contextpack#readme",
+  "homepage": "https://github.com/mrhapile/contextkit#readme",
   "bugs": {
-    "url": "https://github.com/mrhapile/contextpack/issues"
+    "url": "https://github.com/mrhapile/contextkit/issues"
   },
   "bin": {
-    "contextpack": "./bin/contextpack.js"
+    "contextkit": "bin/contextkit.js"
   },
   "keywords": [
     "ai",
@@ -23,6 +23,7 @@
     "developer-tools",
     "workflow",
     "context",
+    "contextkit",
     "skills"
   ],
   "engines": {

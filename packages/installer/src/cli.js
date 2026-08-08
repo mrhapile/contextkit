@@ -1,7 +1,21 @@
 import { fileURLToPath } from "node:url";
+import process from "node:process";
 import { installContext } from "./install.js";
 import { detectAgents } from "./detect.js";
-import { packageName, packageVersion, resolveAgents, resolveSkills } from "./manifest.js";
+import {
+  packageName,
+  packageVersion,
+  resolveAgents,
+  resolveInstallScope,
+  resolveSkills,
+} from "./manifest.js";
+import {
+  createConflictResolver,
+  printBrandBanner,
+  promptForInstallSelection,
+  showConflictSummary,
+  showInstallSummary,
+} from "./terminal-ui.js";
 
 export function printHelp() {
   const lines = [
@@ -13,6 +27,8 @@ export function printHelp() {
     "Options:",
     "  --dir <path>        Target project directory (default: current working directory)",
     "  --agents <list>     Comma-separated agent targets: generic, codex, claude, cursor, all",
+    "  --ide <name>        IDE choice: codex, claude, cursor, generic, other",
+    "  --scope <name>      Install scope: core, full, custom, all",
     "  --skills <list>     Comma-separated skills or bundles: core, all, scope, architect, develop, test, audit, check, debug, document, sync",
     "  --all               Install all skills and all agents",
     "  --core              Install only the core skill bundle",
@@ -49,23 +65,41 @@ export async function runCli(argv = []) {
 
   const options = parseInitOptions(args.slice(1));
   const detectedAgents = detectAgents();
-  const agents = resolveAgents(options, detectedAgents);
-  const skills = resolveSkills(options);
+  const hasInteractiveTerminal = isInteractiveTerminal();
+  if (hasInteractiveTerminal) {
+    printBrandBanner();
+  }
+  const selection = shouldPromptForSelection(options, hasInteractiveTerminal) ? await promptForInstallSelection() : {};
+  const mergedOptions = { ...options, ...selection };
+  const scope = resolveInstallScope(mergedOptions);
+  const agents = resolveAgents(mergedOptions, detectedAgents);
+  const skills = resolveSkills(mergedOptions);
+
+  const conflictResolver = options.force || !hasInteractiveTerminal ? undefined : createConflictResolver();
   const result = await installContext({
     cwd: options.dir,
     agents,
     skills,
+    scope,
     force: options.force,
     dryRun: options.dryRun,
+    conflictResolver,
   });
 
-  reportResult(result);
+  showInstallSummary(result, { scope, ide: mergedOptions.ide ?? "detected" });
+
+  if (result.conflicts.length > 0) {
+    showConflictSummary(result.conflicts);
+    process.exitCode = 1;
+  }
 }
 
 function parseInitOptions(argv) {
   const options = {
     dir: process.cwd(),
     agents: undefined,
+    ide: undefined,
+    scope: undefined,
     skills: undefined,
     all: false,
     core: false,
@@ -81,6 +115,14 @@ function parseInitOptions(argv) {
     }
     if (token === "--agents" || token === "--agent") {
       options.agents = argv[++index];
+      continue;
+    }
+    if (token === "--ide") {
+      options.ide = argv[++index];
+      continue;
+    }
+    if (token === "--scope") {
+      options.scope = argv[++index];
       continue;
     }
     if (token === "--skills") {
@@ -112,29 +154,6 @@ function parseInitOptions(argv) {
   return options;
 }
 
-function reportResult(result) {
-  const summary = [
-    `Installed context into ${result.cwd}`,
-    `Agents: ${result.agents.join(", ")}`,
-    `Skills: ${result.skills.join(", ")}`,
-    `Files created: ${result.created}`,
-    `Files updated: ${result.updated}`,
-    `Files skipped: ${result.skipped}`,
-    `Conflicts: ${result.conflicts.length}`,
-  ];
-
-  console.log(summary.join("\n"));
-
-  if (result.conflicts.length > 0) {
-    console.log("");
-    console.log("Conflicts:");
-    for (const conflict of result.conflicts) {
-      console.log(`  - ${conflict}`);
-    }
-    process.exitCode = 1;
-  }
-}
-
 export function parseAgentList(value) {
   return value
     .split(",")
@@ -160,4 +179,19 @@ export function resolveCliContext(argv = []) {
 
 export function mainModulePath() {
   return fileURLToPath(new URL("../../../bin/contextkit.js", import.meta.url));
+}
+
+function shouldPromptForSelection(options, hasInteractiveTerminal) {
+  const explicitSelection =
+    Boolean(options.agents) ||
+    Boolean(options.ide) ||
+    Boolean(options.skills) ||
+    Boolean(options.scope) ||
+    options.all ||
+    options.core;
+  return hasInteractiveTerminal && !explicitSelection;
+}
+
+function isInteractiveTerminal() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }

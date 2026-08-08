@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { pathExists, readTextFile } from "./fs.js";
 
 const supportedAgents = ["generic", "codex", "claude", "cursor"];
+const supportedIdeTargets = ["codex", "claude", "cursor", "generic", "other"];
 const supportedSkillNames = [
   "scope",
   "architect",
@@ -27,14 +28,10 @@ const packageJson = JSON.parse(await readTextFile(fileURLToPath(packageJsonPath)
 
 export const packageName = packageJson.name;
 export const packageVersion = packageJson.version;
-export { supportedAgents, supportedSkillNames };
+export { supportedAgents, supportedIdeTargets, supportedSkillNames };
 
 export function resolveAgents(options = {}, detectedAgents = ["generic"]) {
   const explicit = parseCommaList(options.agents);
-
-  if (options.all) {
-    return supportedAgents;
-  }
 
   if (explicit.length > 0) {
     if (explicit.includes("all")) {
@@ -47,6 +44,21 @@ export function resolveAgents(options = {}, detectedAgents = ["generic"]) {
     return normalizeAgents(explicit);
   }
 
+  if (options.all) {
+    return supportedAgents;
+  }
+
+  if (options.ide) {
+    const selectedIde = String(options.ide).trim().toLowerCase();
+    if (selectedIde === "other" || selectedIde === "generic") {
+      return ["generic"];
+    }
+    if (!supportedAgents.includes(selectedIde)) {
+      throw new Error(`Unknown IDE target: ${options.ide}`);
+    }
+    return [selectedIde];
+  }
+
   if (detectedAgents.length > 0) {
     return normalizeAgents(detectedAgents);
   }
@@ -55,15 +67,8 @@ export function resolveAgents(options = {}, detectedAgents = ["generic"]) {
 }
 
 export function resolveSkills(options = {}) {
-  if (options.all) {
-    return [...supportedSkillNames];
-  }
-
-  if (options.core) {
-    return [...bundleDefinitions.core];
-  }
-
   const explicit = parseCommaList(options.skills);
+
   if (explicit.length > 0) {
     const resolved = [];
     for (const item of explicit) {
@@ -81,7 +86,51 @@ export function resolveSkills(options = {}) {
     return [...new Set(resolved)];
   }
 
+  if (options.all) {
+    return [...supportedSkillNames];
+  }
+
+  if (options.core) {
+    return [...bundleDefinitions.core];
+  }
+
+  if (options.scope === "all") {
+    return [...supportedSkillNames];
+  }
+
+  if (options.scope === "core") {
+    return [...bundleDefinitions.core];
+  }
+
+  if (options.scope === "full") {
+    return [...bundleDefinitions.core];
+  }
+
   return [...bundleDefinitions.core];
+}
+
+export function resolveInstallScope(options = {}) {
+  if (options.all || options.scope === "all") {
+    return "all";
+  }
+
+  if (options.core || options.scope === "core") {
+    return "core";
+  }
+
+  if (options.scope === "full") {
+    return "full";
+  }
+
+  if (options.scope === "custom") {
+    return "custom";
+  }
+
+  if (parseCommaList(options.skills).length > 0) {
+    return "custom";
+  }
+
+  return "core";
 }
 
 export function getSkillDefinition(name) {

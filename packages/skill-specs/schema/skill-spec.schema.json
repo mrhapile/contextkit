@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextKit Skill Spec",
+  "type": "object",
+  "required": ["frontmatter", "bodySections"],
+  "properties": {
+    "frontmatter": {
+      "type": "object",
+      "required": ["id", "name", "phase", "triggers", "reads", "writes"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        },
+        "triggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "writes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "bodySections": {
+      "type": "object",
+      "required": ["title", "useWhen", "do", "avoid"],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "useWhen": {
+          "type": "string"
+        },
+        "do": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

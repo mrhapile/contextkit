@@ -1,6 +1,6 @@
 {
   "name": "@akashanand/contextkit",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Context and skills installer for AI coding agents.",
   "type": "module",
   "license": "MIT",
@@ -39,5 +39,10 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "@clack/prompts": "^1.7.0",
+    "figlet": "^1.11.4",
+    "gradient-string": "^3.0.0"
+  }
 }

@@ -1,0 +1,9 @@
+---
+description: ContextKit workflow guidance for this project
+alwaysApply: true
+---
+
+# Cursor Workspace Guide
+
+Use the shared skills in `.contextkit/skills/` as the source of truth.
+Prefer small, reviewable changes and verify the result before wrapping up.

@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
-const message = "contextkit is coming soon - see https://github.com/mrhapile/contextkit";
+import { runCli } from "../packages/installer/src/cli.js";
 
-console.log(message);
+runCli(process.argv.slice(2)).catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+  process.exitCode = 1;
+});

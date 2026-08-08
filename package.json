@@ -1,6 +1,6 @@
 {
   "name": "@akashanand/contextkit",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Context and skills installer for AI coding agents.",
   "type": "module",
   "license": "MIT",
@@ -15,6 +15,9 @@
   },
   "bin": {
     "contextkit": "bin/contextkit.js"
+  },
+  "scripts": {
+    "test": "node --test"
   },
   "keywords": [
     "ai",
@@ -31,7 +34,10 @@
   },
   "files": [
     "bin/",
+    "packages/",
+    "docs/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ]
 }

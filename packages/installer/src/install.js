@@ -1,8 +1,10 @@
 import path from "node:path";
-import { ensureDir, pathExists, writeJsonFileSafe, writeTextFileSafe } from "./fs.js";
+import { writeFile } from "node:fs/promises";
+import { ensureDir, pathExists, readTextFile, writeJsonFileSafe } from "./fs.js";
 import {
   buildSignature,
   getAgentGuidePath,
+  getSkillDefinition,
   getSkillPath,
   manifestPath,
   packageName,
@@ -11,16 +13,59 @@ import {
   readSkillMarkdown,
   resolveSkills,
 } from "./manifest.js";
-import { renderAgentGuide, renderCursorRule, renderRootGuide } from "./template-loader.js";
+import { renderAgentGuide, renderBaseContextFile, renderCursorRule, renderRootGuide } from "./template-loader.js";
 
-export async function buildInstallationPlan({ agents, skills }) {
+const coreBaseContextFiles = [
+  { path: "agent-context.md", template: "agent-context.md" },
+  { path: "ai-workflow-rules.md", template: "ai-workflow-rules.md" },
+  { path: "code-standards.md", template: "code-standards.md" },
+];
+
+const fullBaseContextFiles = [
+  ...coreBaseContextFiles,
+  { path: "architecture.md", template: "architecture.md" },
+  { path: "progress-tracker.md", template: "progress-tracker.md" },
+  { path: "project-overview.md", template: "project-overview.md" },
+  { path: "ui-context.md", template: "ui-context.md" },
+];
+
+function getBaseContextFiles(scope) {
+  if (scope === "core") {
+    return coreBaseContextFiles;
+  }
+
+  return fullBaseContextFiles;
+}
+
+function buildSkillEntries(skills) {
+  return skills.map((name) => {
+    const definition = getSkillDefinition(name);
+    return {
+      name,
+      path: getSkillPath(name),
+      description: [definition.name, definition.phase].filter(Boolean).join(", "),
+    };
+  });
+}
+
+export async function buildInstallationPlan({ agents, skills, scope = "core" }) {
+  const baseContextFiles = getBaseContextFiles(scope);
+  const skillEntries = buildSkillEntries(skills);
   const files = [
     {
       path: "AGENTS.md",
       type: "guide",
-      content: await renderRootGuide(),
+      content: await renderRootGuide(skillEntries),
     },
   ];
+
+  for (const baseFile of baseContextFiles) {
+    files.push({
+      path: baseFile.path,
+      type: "base",
+      content: await renderBaseContextFile(baseFile.template),
+    });
+  }
 
   for (const skill of skills) {
     files.push({
@@ -49,12 +94,14 @@ export async function installContext({
   cwd = process.cwd(),
   agents = ["generic"],
   skills = ["scope", "architect", "develop", "test"],
+  scope = "core",
   force = false,
   dryRun = false,
+  conflictResolver,
 } = {}) {
   const absoluteCwd = path.resolve(cwd);
-  const normalizedSkills = resolveSkills({ skills });
-  const plan = await buildInstallationPlan({ agents, skills: normalizedSkills });
+  const normalizedSkills = resolveSkills({ skills, scope });
+  const plan = await buildInstallationPlan({ agents, skills: normalizedSkills, scope });
   const manifest = {
     package: packageName,
     version: packageVersion,
@@ -64,7 +111,7 @@ export async function installContext({
     signature: buildSignature({
       version: packageVersion,
       agents,
-      skills,
+      skills: normalizedSkills,
       files: plan.map((file) => ({ path: file.path, hash: hashContent(file.content) })),
     }),
     files: plan.map((file) => ({ path: file.path, type: file.type })),
@@ -75,8 +122,15 @@ export async function installContext({
 
   for (const file of plan) {
     const filePath = path.join(absoluteCwd, file.path);
-    const result = await writeTextFileSafe(filePath, file.content, { force, dryRun });
-    results.push(result);
+    const result = await writePlannedFile({
+      filePath,
+      content: file.content,
+      force,
+      dryRun,
+      conflictResolver,
+      file,
+    });
+    results.push({ status: result.status, filePath });
     if (result.status === "conflict") {
       conflicts.push(file.path);
     }
@@ -135,4 +189,51 @@ function hashContent(content) {
     hash |= 0;
   }
   return `${content.length}:${hash >>> 0}`;
+}
+
+async function writePlannedFile({ filePath, content, force, dryRun, conflictResolver, file }) {
+  const existed = await pathExists(filePath);
+  if (!existed) {
+    if (!dryRun) {
+      await ensureDir(path.dirname(filePath));
+      await writeFile(filePath, content);
+    }
+    return { status: "created" };
+  }
+
+  const existing = await readTextFile(filePath);
+  if (existing === content) {
+    return { status: "skipped" };
+  }
+
+  if (force) {
+    if (!dryRun) {
+      await ensureDir(path.dirname(filePath));
+      await writeFile(filePath, content);
+    }
+    return { status: "updated" };
+  }
+
+  if (typeof conflictResolver !== "function") {
+    return { status: "conflict" };
+  }
+
+  const decision = await conflictResolver({
+    file,
+    filePath,
+    existingContent: existing,
+    nextContent: content,
+  });
+
+  if (!decision || decision.action === "skip") {
+    return { status: "skipped" };
+  }
+
+  const finalContent = decision.content ?? content;
+  if (!dryRun) {
+    await ensureDir(path.dirname(filePath));
+    await writeFile(filePath, finalContent);
+  }
+
+  return { status: "updated" };
 }
